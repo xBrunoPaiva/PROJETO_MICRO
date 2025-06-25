@@ -5,7 +5,7 @@
 #include <Adafruit_NeoPixel.h>
 
 #define pinoLed 38
-#define numLeds 78
+#define numLeds 150
 
 
 // encerramento bloco leds
@@ -48,8 +48,8 @@ bool vence = false;
 bool inicio = false;
 
 // bloco leds
-int idxLaguinho = 22;
-bool piscarAtivo[78] = { false };
+int idxLaguinho = 39;
+bool piscarAtivo[150] = { false };
 unsigned long ultimaTroca = 0;
 bool estadoPisca = false;
 
