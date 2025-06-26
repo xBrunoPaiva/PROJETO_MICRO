@@ -28,6 +28,8 @@ int cor1 = 0;
 int cor2 = 0;
 int cor3 = 0;
 
+
+
 // (suas definições de LED devem estar antes; aqui assumo que você já tem numLeds, pinoLed e fita definidos)
 
 int tabuleiro[7][7] = {
@@ -59,7 +61,9 @@ bool inicio = false;
 
 // bloco leds
 int idxLaguinho = 39;
-bool piscarAtivo[150] = { false };
+piscarAtivo[numLeds] = { false };
+bool piscaRed[ numLeds ]   = { false };
+bool piscaGreen[ numLeds ] = { false };
 unsigned long ultimaTroca = 0;
 bool estadoPisca = false;
 
@@ -93,71 +97,72 @@ void setup() {
 }
 
 void loop() {
-  if (Serial.available()) {
-    String texto = Serial.readStringUntil('\n');
-    texto.trim();
+  if (Serial.available()) {                        // Verifica se há dados disponíveis na Serial
+    String texto = Serial.readStringUntil('\n');  // Lê até a próxima quebra de linha
+    texto.trim();                                  // Remove espaços em branco extras
 
-    // 1) Comando clear
+    // 1) Comando para limpar os LEDs
     if (texto.equalsIgnoreCase("clear")) {
       limparMatrizDeLEDs();
       Serial.println("Todos os LEDs foram apagados.");
       estado = INI_FLUX;
       return;
     }
-    
-    if (estado == EST_AGUARDANDO_DESTINO) {
-    // converte letra e número em índice
-    char letra = texto.charAt(0);
-    colDest = toupper(letra) - 'A';
-    linDest = texto.substring(1).toInt() - 1;
 
-    // verifica se está na lista possMoves
-    bool ok = false;
-    for (int i = 0; i < possCount; i++) {
-      if (possMoves[i][0] == linDest && possMoves[i][1] == colDest) {
-        ok = true; break;
+    // 2) Se estiver aguardando o destino da peça
+    if (estado == EST_AGUARDANDO_DESTINO) {
+      char letra = texto.charAt(0);
+      colDest = toupper(letra) - 'A';
+      linDest = texto.substring(1).toInt() - 1;
+
+      bool ok = false;
+      for (int i = 0; i < possCount; i++) {
+        if (possMoves[i][0] == linDest && possMoves[i][1] == colDest) {
+          ok = true;
+          break;
+        }
       }
-    }
-    if (!ok) {
-      Serial.println("Destino inválido. Tente novamente.");
-      Serial.println("Para onde?");
+
+      if (!ok) {
+        Serial.println("Destino inválido. Tente novamente.");
+        Serial.println("Para onde?");
+        return;
+      }
+
+      int peca = tabuleiro[LinOri][ColOri];        // Peça a ser movida
+      int casa = tabuleiro[linDest][colDest];      // Casa de destino
+
+      if (casa == 0) {                              // Movimento normal
+        move(LinOri, ColOri, linDest, colDest, peca);
+        Serial.println("Peça movida com sucesso!");
+      } else {
+        int resultado = ataque(peca, casa);        // Confronto
+        if (resultado == 1)        move(LinOri, ColOri, linDest, colDest, peca);  // Venceu
+        else if (resultado == -1) morte(LinOri, ColOri);                          // Perdeu
+        else if (resultado == 2)  vence = true;                                    // Ganhou o jogo
+        else                      { morte(LinOri, ColOri); morte(linDest, colDest); } // Empate
+      }
+
+      limparMatrizDeLEDs();                         // Limpa os LEDs após jogada
+      geraMatriz();                                 // Atualiza as matrizes visuais
+      exibeMat(vezP1 ? matrizP1 : matrizP2);        // Mostra a matriz correta para o jogador
+      imprimeTabuleiro();                           // Mostra no Serial
+      if (vence) vencedor();                        // Finaliza se alguém ganhou
+      vezP1 = !vezP1;                               // Alterna turno
+      estado = INI_FLUX;                            // Reinicia estado
       return;
     }
 
-    // executa movimento ou ataque
-    int peca = tabuleiro[LinOri][ColOri];
-    int casa = tabuleiro[linDest][colDest];
-    if (casa == 0) {
-      move(LinOri, ColOri, linDest, colDest, peca);
-      Serial.println("Peça movida com sucesso!");
-    } else {
-      int resultado = ataque(peca, casa);
-      if      (resultado == 1)  move(LinOri, ColOri, linDest, colDest, peca);
-      else if (resultado == -1) morte(LinOri, ColOri);
-      else if (resultado == 2)  vence = true;
-      else    { morte(LinOri, ColOri); morte(linDest, colDest); }
+    // 3) Comando para iniciar o jogo
+    if (texto.startsWith("iniciar")) {
+      inicio = true;
+      vence = false;
+      tela.fillScreen(TFT_BLACK);
+      exibeMat(matrizP1);
+      return;
     }
 
-    // finaliza fluxo
-    limparMatrizDeLEDs();
-    geraMatriz();
-    exibeMat(vezP1 ? matrizP1 : matrizP2);
-    imprimeTabuleiro();
-    if (vence) vencedor();
-    vezP1 = !vezP1;
-    estado = INI_FLUX;
-    return;
-  }
-
-    
-    if (texto.startsWith("iniciar")) {
-     inicio = true; 
-     vence = false;
-     tela.fillScreen(TFT_BLACK);
-     exibeMat(matrizP1);
-     return;
-  }
-    // 1.1) Comandos de LEDs
+    // 4) Comandos de controle de LEDs via Serial
     int barra1 = texto.indexOf('/');
     if (barra1 != -1) {
       String acao = texto.substring(0, barra1);
@@ -167,7 +172,7 @@ void loop() {
         Serial.println("Coordenadas inválidas. Use linha,coluna");
         return;
       }
-      int linha = coordenadas.substring(0, virgula).toInt() ;
+      int linha = coordenadas.substring(0, virgula).toInt();
       int coluna = coordenadas.substring(virgula + 1).toInt();
       if (linha < 0 || linha > 6 || coluna < 0 || coluna > 6) {
         Serial.println("Linha ou coluna fora dos limites.");
@@ -194,84 +199,77 @@ void loop() {
       }
       return;
     }
-    
+
+    // 5) Comando para mover uma peça
     if (texto.startsWith("mover") && estado == INI_FLUX) {
-    char letra = texto.charAt(6);
-    int col = toupper(letra) - 'A';
-    int lin = texto.substring(7,8).toInt() - 1;
-    String player = texto.substring(9);
-    player.trim();
+      char letra = texto.charAt(6);
+      int col = toupper(letra) - 'A';
+      int lin = texto.substring(7, 8).toInt() - 1;
+      String player = texto.substring(9);
+      player.trim();
 
-    if (!inicio) {
-      Serial.println("Precisa iniciar jogo: iniciar micrombate");
-      return;
-    }
+      if (!inicio) {
+        Serial.println("Precisa iniciar jogo: iniciar micrombate");
+        return;
+      }
 
-    int peca = tabuleiro[lin][col];
-    bool ehP1 = (player=="P1" && peca>=1 && peca<=5);
-    bool ehP2 = (player=="P2" && peca>=6 && peca<=10);
-    if ((!vezP1 && ehP1) || (vezP1 && ehP2) || !(ehP1||ehP2)) {
-      Serial.println("Peca invalida para voce");
-      return;
-    }
+      int peca = tabuleiro[lin][col];
+      bool pecaP1 = (player == "P1" && peca >= 1 && peca <= 5);
+      bool pecaP2 = (player == "P2" && peca >= 6 && peca <=   0);
+      if ((pecaP1 && !vezP1) || (pecaP2 && vezP1) || !(pecaP2 || pecaP1)) {
+        Serial.println("Peca invalida para voce");
+        return;
+      }
 
-    // calcula até 4 vizinhos válidos
-    possCount = 0;                                           
-    const int dirs[4][2] = {{1,0},{-1,0},{0,1},{0,-1}};   
-    for (int d = 0; d < 4; d++) {
-      int nl = lin + dirs[d][0]; 
-      int nc = col + dirs[d][1];
-      if (nl<0||nl>=NUM_LINHAS||nc<0||nc>=NUM_COLUNAS) continue; //quer dizer que ta fora dos limites
-      int dest = tabuleiro[nl][nc];
-      if (dest==11) continue; // lago
-      if (player == "P1") {
-      if (dest >= 1 && dest <= 5) continue; // propria peca
-      possMoves[possCount][0] = nl;
-      possMoves[possCount][1] = nc;
-      possCount++;
+      // calcula os 4 vizinhos
+      possCount = 0;
+      const int dirs[4][2] = {{1,0},{-1,0},{0,1},{0,-1}};
+      for (int d = 0; d < 4; d++) {
+        int nl = lin + dirs[d][0];
+        int nc = col + dirs[d][1];
+        if (nl < 0 || nl >= NUM_LINHAS || nc < 0 || nc >= NUM_COLUNAS) continue;
+        int dest = tabuleiro[nl][nc];
+        if (dest == 11) continue;
+        if (player == "P1") {
+          if (dest >= 1 && dest <= 5) continue;
+          possMoves[possCount][0] = nl;
+          possMoves[possCount][1] = nc;
+          possCount++;
 
-      if (dest == 0)
-        pisca(nl, nc, 2);     // livre pisca verde
-      else
-        acender(nl, nc, 5);   // inimigo acende vermelho
-    }
-    // jogador P2
-      else if (player == "P2") {
-        if (dest >= 6 && dest <= 10) continue; // propria peça
-        possMoves[possCount][0] = nl;
-        possMoves[possCount][1] = nc;
-        possCount++;
+          if (dest == 0) piscaVerde(nl, nc);     // Casa vazia → pisca verde
+          else           piscaVermelho(nl, nc);   // Inimigo → acende vermelho
+        } else if (player == "P2") {
+          if (dest >= 6 && dest <= 10) continue;
+          possMoves[possCount][0] = nl;
+          possMoves[possCount][1] = nc;
+          possCount++;
 
-      if (dest == 0)
-        pisca(nl, nc, 2);     // livre pisca verde
-      else
-        acender(nl, nc, 5);   // inimigo acende vermelho
-    }
-    }
-    //fora do for
-    if (possCount == 0) {
-          Serial.println("Sem movimentos possíveis , escolha uma nova peça para mover.");
-          estado = INI_FLUX;
-          return;
+          if (dest == 0) pisca(nl, nc, 2);
+          else           acender(nl, nc, 5);
         }
+      }
 
-    
-    limparMatrizDeLEDs();
-    LinOri = lin;  ColOri = col;
-    acender(LinOri, ColOri, 3); 
-    Serial.println("Para onde?");
-    estado = EST_AGUARDANDO_DESTINO;
-    return;
-  }
+      if (possCount == 0) {
+        Serial.println("Sem movimentos possíveis , escolha uma nova peça para mover.");
+        estado = INI_FLUX;
+        return;
+      }
 
-    // 2) Comandos do jogo
+      limparMatrizDeLEDs();
+      LinOri = lin;
+      ColOri = col;
+      acender(LinOri, ColOri, 3);             // Destaca a peça escolhida com amarelo
+      Serial.println("Para onde?");
+      estado = EST_AGUARDANDO_DESTINO;
+      return;
+    }
+
+    // 6) Outros comandos
     if (texto.startsWith("imprime")) {
       geraMatriz();
       exibeMat(tabuleiro);
     }
-    
     else if (texto.startsWith("{{")) {
-      // remove {{, }}, e vírgulas
       texto.replace("{", "");
       texto.replace("}", "");
       geraMatriz();
@@ -299,103 +297,9 @@ void loop() {
         Serial.println();
       }
     }
-    // else if (texto.startsWith("mover")) {
-    //   int colOri = letraParaColuna(texto.substring(6,7)[0]);
-    //   int linOri = texto.substring(7,8).toInt() - 1;
-    //   int peca  = tabuleiro[linOri][colOri];
-    //   int colDest = letraParaColuna(texto.substring(12,13)[0]);
-    //   int linDest = texto.substring(13,14).toInt() - 1;
-    //   int casaDest = tabuleiro[linDest][colDest];
-    //   int deltaLinha = abs(linDest - linOri);
-    //   int deltaCol   = abs(colDest - colOri);
-
-    //   String player = texto.substring(15);
-    //   player.trim();
-
-    //   //Serial.println(colOri);
-    //   //Serial.println(linOri);
-    //   Serial.println(colDest);
-    //   Serial.println(linDest);
-    //   //Serial.println(deltaLinha);
-    //   //Serial.println(deltaCol);
-    //   //Serial.println(player);
-    //   //Serial.println(peca);
-    //   //Serial.println(casaDest);
-
-    //   if (!inicio) {
-    //     Serial.println("Precisa começar o jogo digitando: iniciar micrombate");
-    //   }
-    //   else if (linDest < 0 || colDest < 0 || linDest > 7 || colDest > 7){
-    //     Serial.println("Out of bound bud!");
-    //   }
-    //   else if ((vezP1 && player != "P1") || (!vezP1 && player != "P2")) {
-    //     Serial.println("Não é sua vez!");
-    //   }
-    //   else if (player == "P1" && (casaDest <= 5 && casaDest != 0)) {
-    //     Serial.println("Não pode se mover em direção a sua própria peça P1!");
-    //   }
-    //   else if (player == "P2" && (casaDest >= 6 && casaDest != 11)) {
-    //     Serial.println("Não pode se mover em direção a sua própria peça P2!");
-    //   }
-    //   else if ((deltaLinha + deltaCol) != 1) {
-    //     Serial.println("movimento inválido, só pode andar UMA casa para cima/baixo/esquerda/direita!");
-    //   }
-    //   else {
-    //     if (player == "P1") {
-    //       if (peca == 2 || peca == 4 || peca == 5) {
-    //         Serial.println("Movimento válido");
-    //         if (casaDest == 0) {
-    //           move(linOri, colOri, linDest, colDest, peca);
-    //           Serial.println("Peça movida com sucesso!");
-    //         } else if (casaDest == 11) {
-    //           Serial.println("Quer se mover para um lago? Inválido!!!");
-    //         } else {
-    //           int resultado = ataque(peca, casaDest);
-    //           if (resultado == 1) move(linOri, colOri, linDest, colDest, peca);
-    //           else if (resultado == -1) morte(linOri, colOri);
-    //           else if (resultado == 2) vence = true;
-    //           else { morte(linOri, colOri); morte(linDest, colDest); }
-    //         }
-  //           geraMatriz();
-            
-  //           exibeMat(matrizP2);
-  //           vezP1 = !vezP1;
-  //         }
-  //         else {
-  //           Serial.println("Você não pode mexer essa peça");
-  //         }
-  //       }
-  //       else {  // jogador P2
-  //         if (peca == 7 || peca == 9 || peca == 10) {
-  //           if (casaDest == 0) {
-  //             move(linOri, colOri, linDest, colDest, peca);
-  //             Serial.println("Peça movida com sucesso!");
-  //           } else if (casaDest == 11) {
-  //             Serial.println("Quer se mover para um lago? Inválido!!!");
-  //           } else {
-  //             int result = ataque(peca, casaDest);
-  //             if (result == 1) move(linOri, colOri, linDest, colDest, peca);
-  //             else if (result == -1) morte(linOri, colOri);
-  //             else if (result == 2) vence = true;
-  //             else { morte(linOri, colOri); morte(linDest, colDest); }
-  //           }
-  //           geraMatriz();
-  //           exibeMat(matrizP1);
-  //           vezP1 = !vezP1;
-  //         }
-  //         else {
-  //           Serial.println("Você não pode mexer essa peça");
-  //         }
-  //       }
-  //       imprimeTabuleiro();
-  //       if (vence) vencedor();
-  //     }
-  //   }
-
-  // }
-
   }
-// atualização do piscar dos LEDs
+
+  // 7) Lógica de piscar os LEDs
   if (millis() - ultimaTroca >= 300) {
     ultimaTroca = millis();
     estadoPisca = !estadoPisca;
@@ -403,11 +307,22 @@ void loop() {
       if (piscarAtivo[i]) {
         fita.setPixelColor(i, estadoPisca ? fita.Color(cor1, cor2, cor3) : 0);
       }
+      else if (piscaRed[i]) {
+      // alterna vermelho on/off
+     
+      fita.setPixelColor(i, estadoPisca ? fita.Color(255,0,0) : 0);
+    }
+      else if (piscaGreen[i]) {
+      // alterna verde on/off
+      
+      fita.setPixelColor(i, estadoPisca ? fita.Color(0,255,0) : 0);
+    }
     }
     fita.show();
   }
 }
 // fim do loop()
+
 
 void imprimeTabuleiro(){
   for (int i = 0; i < 7; i++) {
@@ -504,7 +419,7 @@ void destacarAtaques(String player) {
       if ((player == "P1" && peca >= 1 && peca <= 5) ||
           (player == "P2" && peca >= 6 && peca <= 10)) {
        
-        // Verifica casas adjacentes
+        // Verifica casas adjacentesF
         for (int di = -1; di <= 1; di++) {
           for (int dj = -1; dj <= 1; dj++) {
             if (di == 0 && dj == 0) continue;
@@ -649,12 +564,35 @@ void limparMatrizDeLEDs() {
   fita.show();
 }
 
-void pisca(int linha, int coluna, int cor) {
+
+// faz o LED da (linha,coluna) piscar em vermelho
+void piscaVermelho(int linha, int coluna) {
   int idx = posicaoParaIndice(linha, coluna);
-  corDoLed(cor);                
-  piscarAtivo[idx] = true;   
-  fita.setPixelColor(idx, fita.Color(cor1, cor2, cor3));
+  piscaRed[idx] = true;             // marca para piscar vermelho
+  piscaGreen[idx] = false;          // garante que não está marcado verde
+  // acende de cara em vermelho
+                     
+  fita.setPixelColor(idx, fita.Color(255,0,0));
   fita.show();
-  Serial.println("ta entrando na função piscar");
+}
+
+// faz o LED da (linha,coluna) piscar em verde
+void piscaVerde(int linha, int coluna) {
+  int idx = posicaoParaIndice(linha, coluna);
+  piscaGreen[idx] = true;           // marca para piscar verde
+  piscaRed[idx] = false;            // garante que não está marcado vermelho
+  // acende de cara em verde
+              
+  fita.setPixelColor(idx, fita.Color(0,255,0));
+  fita.show();
+}
+
+void clearBlink() {
+  for (int i = 0; i < numLeds; i++) {
+    piscaRed[i]   = false;
+    piscaGreen[i] = false;
+    fita.setPixelColor(i, 0);
+  }
+  fita.show();
 }
 //encerramento bloco leds
