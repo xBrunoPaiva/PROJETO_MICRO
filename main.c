@@ -648,4 +648,12 @@ void limparMatrizDeLEDs() {
   fita.setPixelColor(idxLaguinho, fita.Color(0, 0, 255));
   fita.show();
 }
+
+void pisca(int linha, int coluna, int cor) {
+  int idx = posicaoParaIndice(linha, coluna);
+  corDoLed(cor);                
+  piscarAtivo[idx] = true;   
+  fita.setPixelColor(idx, fita.Color(cor1, cor2, cor3));
+  fita.show();
+}
 //encerramento bloco leds
