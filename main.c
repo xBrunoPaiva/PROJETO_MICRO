@@ -40,6 +40,16 @@ int tabuleiro[7][7] = {
   {11, 0, 0,11, 0, 0, 11}
 };
 
+const int  INI_FLUX               = 1;  // aguardando comando inicial
+const int EST_AGUARDANDO_DESTINO = 2;  // origem escolhida, espera destino
+int estado = INI_FLUX;
+
+
+
+int LinOri, ColOri;       // casa de origem
+int linDest, colDest;     // casa de destino
+int possCount;            // número de destinos válidos encontrados
+int possMoves[4][2];     
 int matrizP1[7][7];
 int matrizP2[7][7];
 
@@ -91,9 +101,62 @@ void loop() {
     if (texto.equalsIgnoreCase("clear")) {
       limparMatrizDeLEDs();
       Serial.println("Todos os LEDs foram apagados.");
+      estado = INI_FLUX;
+      return;
+    }
+    
+    if (estado == EST_AGUARDANDO_DESTINO) {
+    // converte letra e número em índice
+    char letra = texto.charAt(0);
+    colDest = toupper(letra) - 'A';
+    linDest = texto.substring(1).toInt() - 1;
+
+    // verifica se está na lista possMoves
+    bool ok = false;
+    for (int i = 0; i < possCount; i++) {
+      if (possMoves[i][0] == linDest && possMoves[i][1] == colDest) {
+        ok = true; break;
+      }
+    }
+    if (!ok) {
+      Serial.println("Destino inválido. Tente novamente.");
+      Serial.println("Para onde?");
       return;
     }
 
+    // executa movimento ou ataque
+    int peca = tabuleiro[LinOri][ColOri];
+    int casa = tabuleiro[linDest][colDest];
+    if (casa == 0) {
+      move(LinOri, ColOri, linDest, colDest, peca);
+      Serial.println("Peça movida com sucesso!");
+    } else {
+      int resultado = ataque(peca, casa);
+      if      (resultado == 1)  move(LinOri, ColOri, linDest, colDest, peca);
+      else if (resultado == -1) morte(LinOri, ColOri);
+      else if (resultado == 2)  vence = true;
+      else    { morte(LinOri, ColOri); morte(linDest, colDest); }
+    }
+
+    // finaliza fluxo
+    limparMatrizDeLEDs();
+    geraMatriz();
+    exibeMat(vezP1 ? matrizP1 : matrizP2);
+    imprimeTabuleiro();
+    if (vence) vencedor();
+    vezP1 = !vezP1;
+    estado = INI_FLUX;
+    return;
+  }
+
+    
+    if (texto.startsWith("iniciar")) {
+     inicio = true; 
+     vence = false;
+     tela.fillScreen(TFT_BLACK);
+     exibeMat(matrizP1);
+     return;
+  }
     // 1.1) Comandos de LEDs
     int barra1 = texto.indexOf('/');
     if (barra1 != -1) {
@@ -116,7 +179,7 @@ void loop() {
         return;
       }
       if (acao == "acender") {
-        acender(linha, coluna, cor);
+        acender(linha, coluna, 1);
       } else if (acao == "apagar") {
         piscarAtivo[idx] = false;
         fita.setPixelColor(idx, 0);
@@ -131,18 +194,82 @@ void loop() {
       }
       return;
     }
+    
+    if (texto.startsWith("mover") && estado == INI_FLUX) {
+    char letra = texto.charAt(6);
+    int col = toupper(letra) - 'A';
+    int lin = texto.substring(7,8).toInt() - 1;
+    String player = texto.substring(9);
+    player.trim();
+
+    if (!inicio) {
+      Serial.println("Precisa iniciar jogo: iniciar micrombate");
+      return;
+    }
+
+    int peca = tabuleiro[lin][col];
+    bool ehP1 = (player=="P1" && peca>=1 && peca<=5);
+    bool ehP2 = (player=="P2" && peca>=6 && peca<=10);
+    if ((!vezP1 && ehP1) || (vezP1 && ehP2) || !(ehP1||ehP2)) {
+      Serial.println("Peca invalida para voce");
+      return;
+    }
+
+    // calcula até 4 vizinhos válidos
+    possCount = 0;                                           
+    const int dirs[4][2] = {{1,0},{-1,0},{0,1},{0,-1}};   
+    for (int d = 0; d < 4; d++) {
+      int nl = lin + dirs[d][0]; 
+      int nc = col + dirs[d][1];
+      if (nl<0||nl>=NUM_LINHAS||nc<0||nc>=NUM_COLUNAS) continue; //quer dizer que ta fora dos limites
+      int dest = tabuleiro[nl][nc];
+      if (dest==11) continue; // lago
+      if (player == "P1") {
+      if (dest >= 1 && dest <= 5) continue; // propria peca
+      possMoves[possCount][0] = nl;
+      possMoves[possCount][1] = nc;
+      possCount++;
+
+      if (dest == 0)
+        pisca(nl, nc, 2);     // livre pisca verde
+      else
+        acender(nl, nc, 5);   // inimigo acende vermelho
+    }
+    // jogador P2
+      else if (player == "P2") {
+        if (dest >= 6 && dest <= 10) continue; // propria peça
+        possMoves[possCount][0] = nl;
+        possMoves[possCount][1] = nc;
+        possCount++;
+
+      if (dest == 0)
+        pisca(nl, nc, 2);     // livre pisca verde
+      else
+        acender(nl, nc, 5);   // inimigo acende vermelho
+    }
+    }
+    //fora do for
+    if (possCount == 0) {
+          Serial.println("Sem movimentos possíveis , escolha uma nova peça para mover.");
+          estado = INI_FLUX;
+          return;
+        }
+
+    
+    limparMatrizDeLEDs();
+    LinOri = lin;  ColOri = col;
+    acender(LinOri, ColOri, 3); 
+    Serial.println("Para onde?");
+    estado = EST_AGUARDANDO_DESTINO;
+    return;
+  }
 
     // 2) Comandos do jogo
     if (texto.startsWith("imprime")) {
       geraMatriz();
       exibeMat(tabuleiro);
     }
-    else if (texto.startsWith("iniciar")) {
-      inicio = true;
-      vence = false;
-      tela.fillScreen(TFT_BLACK);
-      exibeMat(matrizP1);
-    }
+    
     else if (texto.startsWith("{{")) {
       // remove {{, }}, e vírgulas
       texto.replace("{", "");
@@ -172,102 +299,102 @@ void loop() {
         Serial.println();
       }
     }
-    else if (texto.startsWith("mover")) {
-      int colOri = letraParaColuna(texto.substring(6,7)[0]);
-      int linOri = texto.substring(7,8).toInt() - 1;
-      int peca  = tabuleiro[linOri][colOri];
-      int colDest = letraParaColuna(texto.substring(12,13)[0]);
-      int linDest = texto.substring(13,14).toInt() - 1;
-      int casaDest = tabuleiro[linDest][colDest];
-      int deltaLinha = abs(linDest - linOri);
-      int deltaCol   = abs(colDest - colOri);
+    // else if (texto.startsWith("mover")) {
+    //   int colOri = letraParaColuna(texto.substring(6,7)[0]);
+    //   int linOri = texto.substring(7,8).toInt() - 1;
+    //   int peca  = tabuleiro[linOri][colOri];
+    //   int colDest = letraParaColuna(texto.substring(12,13)[0]);
+    //   int linDest = texto.substring(13,14).toInt() - 1;
+    //   int casaDest = tabuleiro[linDest][colDest];
+    //   int deltaLinha = abs(linDest - linOri);
+    //   int deltaCol   = abs(colDest - colOri);
 
-      String player = texto.substring(15);
-      player.trim();
+    //   String player = texto.substring(15);
+    //   player.trim();
 
-      //Serial.println(colOri);
-      //Serial.println(linOri);
-      Serial.println(colDest);
-      Serial.println(linDest);
-      //Serial.println(deltaLinha);
-      //Serial.println(deltaCol);
-      //Serial.println(player);
-      //Serial.println(peca);
-      //Serial.println(casaDest);
+    //   //Serial.println(colOri);
+    //   //Serial.println(linOri);
+    //   Serial.println(colDest);
+    //   Serial.println(linDest);
+    //   //Serial.println(deltaLinha);
+    //   //Serial.println(deltaCol);
+    //   //Serial.println(player);
+    //   //Serial.println(peca);
+    //   //Serial.println(casaDest);
 
-      if (!inicio) {
-        Serial.println("Precisa começar o jogo digitando: iniciar micrombate");
-      }
-      else if (linDest < 0 || colDest < 0 || linDest > 7 || colDest > 7){
-        Serial.println("Out of bound bud!");
-      }
-      else if ((vezP1 && player != "P1") || (!vezP1 && player != "P2")) {
-        Serial.println("Não é sua vez!");
-      }
-      else if (player == "P1" && (casaDest <= 5 && casaDest != 0)) {
-        Serial.println("Não pode se mover em direção a sua própria peça P1!");
-      }
-      else if (player == "P2" && (casaDest >= 6 && casaDest != 11)) {
-        Serial.println("Não pode se mover em direção a sua própria peça P2!");
-      }
-      else if ((deltaLinha + deltaCol) != 1) {
-        Serial.println("movimento inválido, só pode andar UMA casa para cima/baixo/esquerda/direita!");
-      }
-      else {
-        if (player == "P1") {
-          if (peca == 2 || peca == 4 || peca == 5) {
-            Serial.println("Movimento válido");
-            if (casaDest == 0) {
-              move(linOri, colOri, linDest, colDest, peca);
-              Serial.println("Peça movida com sucesso!");
-            } else if (casaDest == 11) {
-              Serial.println("Quer se mover para um lago? Inválido!!!");
-            } else {
-              int resultado = ataque(peca, casaDest);
-              if (resultado == 1) move(linOri, colOri, linDest, colDest, peca);
-              else if (resultado == -1) morte(linOri, colOri);
-              else if (resultado == 2) vence = true;
-              else { morte(linOri, colOri); morte(linDest, colDest); }
-            }
-            geraMatriz();
+    //   if (!inicio) {
+    //     Serial.println("Precisa começar o jogo digitando: iniciar micrombate");
+    //   }
+    //   else if (linDest < 0 || colDest < 0 || linDest > 7 || colDest > 7){
+    //     Serial.println("Out of bound bud!");
+    //   }
+    //   else if ((vezP1 && player != "P1") || (!vezP1 && player != "P2")) {
+    //     Serial.println("Não é sua vez!");
+    //   }
+    //   else if (player == "P1" && (casaDest <= 5 && casaDest != 0)) {
+    //     Serial.println("Não pode se mover em direção a sua própria peça P1!");
+    //   }
+    //   else if (player == "P2" && (casaDest >= 6 && casaDest != 11)) {
+    //     Serial.println("Não pode se mover em direção a sua própria peça P2!");
+    //   }
+    //   else if ((deltaLinha + deltaCol) != 1) {
+    //     Serial.println("movimento inválido, só pode andar UMA casa para cima/baixo/esquerda/direita!");
+    //   }
+    //   else {
+    //     if (player == "P1") {
+    //       if (peca == 2 || peca == 4 || peca == 5) {
+    //         Serial.println("Movimento válido");
+    //         if (casaDest == 0) {
+    //           move(linOri, colOri, linDest, colDest, peca);
+    //           Serial.println("Peça movida com sucesso!");
+    //         } else if (casaDest == 11) {
+    //           Serial.println("Quer se mover para um lago? Inválido!!!");
+    //         } else {
+    //           int resultado = ataque(peca, casaDest);
+    //           if (resultado == 1) move(linOri, colOri, linDest, colDest, peca);
+    //           else if (resultado == -1) morte(linOri, colOri);
+    //           else if (resultado == 2) vence = true;
+    //           else { morte(linOri, colOri); morte(linDest, colDest); }
+    //         }
+  //           geraMatriz();
             
-            exibeMat(matrizP2);
-            vezP1 = !vezP1;
-          }
-          else {
-            Serial.println("Você não pode mexer essa peça");
-          }
-        }
-        else {  // jogador P2
-          if (peca == 7 || peca == 9 || peca == 10) {
-            if (casaDest == 0) {
-              move(linOri, colOri, linDest, colDest, peca);
-              Serial.println("Peça movida com sucesso!");
-            } else if (casaDest == 11) {
-              Serial.println("Quer se mover para um lago? Inválido!!!");
-            } else {
-              int result = ataque(peca, casaDest);
-              if (result == 1) move(linOri, colOri, linDest, colDest, peca);
-              else if (result == -1) morte(linOri, colOri);
-              else if (result == 2) vence = true;
-              else { morte(linOri, colOri); morte(linDest, colDest); }
-            }
-            geraMatriz();
-            exibeMat(matrizP1);
-            vezP1 = !vezP1;
-          }
-          else {
-            Serial.println("Você não pode mexer essa peça");
-          }
-        }
-        imprimeTabuleiro();
-        if (vence) vencedor();
-      }
-    }
+  //           exibeMat(matrizP2);
+  //           vezP1 = !vezP1;
+  //         }
+  //         else {
+  //           Serial.println("Você não pode mexer essa peça");
+  //         }
+  //       }
+  //       else {  // jogador P2
+  //         if (peca == 7 || peca == 9 || peca == 10) {
+  //           if (casaDest == 0) {
+  //             move(linOri, colOri, linDest, colDest, peca);
+  //             Serial.println("Peça movida com sucesso!");
+  //           } else if (casaDest == 11) {
+  //             Serial.println("Quer se mover para um lago? Inválido!!!");
+  //           } else {
+  //             int result = ataque(peca, casaDest);
+  //             if (result == 1) move(linOri, colOri, linDest, colDest, peca);
+  //             else if (result == -1) morte(linOri, colOri);
+  //             else if (result == 2) vence = true;
+  //             else { morte(linOri, colOri); morte(linDest, colDest); }
+  //           }
+  //           geraMatriz();
+  //           exibeMat(matrizP1);
+  //           vezP1 = !vezP1;
+  //         }
+  //         else {
+  //           Serial.println("Você não pode mexer essa peça");
+  //         }
+  //       }
+  //       imprimeTabuleiro();
+  //       if (vence) vencedor();
+  //     }
+  //   }
+
+  // }
 
   }
-// fim Serial.available()
-
 // atualização do piscar dos LEDs
   if (millis() - ultimaTroca >= 300) {
     ultimaTroca = millis();
@@ -280,6 +407,7 @@ void loop() {
     fita.show();
   }
 }
+// fim do loop()
 
 void imprimeTabuleiro(){
   for (int i = 0; i < 7; i++) {
