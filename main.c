@@ -655,5 +655,6 @@ void pisca(int linha, int coluna, int cor) {
   piscarAtivo[idx] = true;   
   fita.setPixelColor(idx, fita.Color(cor1, cor2, cor3));
   fita.show();
+  Serial.println("ta entrando na função piscar");
 }
 //encerramento bloco leds
