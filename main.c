@@ -437,21 +437,15 @@ void geraMatriz() {
 
 
 uint16_t corDaPeca(int valor) {
-  switch (valor) {
-    case 0:  return TFT_BLACK;     // vazio
-    case 1:  return TFT_BLUE;      // prisioneiro P1
-    case 2:  return TFT_GREEN;     // agente secreto P1
-    case 3:  return TFT_YELLOW;    // mina terrestre P1
-    case 4:  return TFT_ORANGE;    // cabo P1
-    case 5:  return TFT_RED;       // general P1
-    case 6:  return TFT_NAVY;      // prisioneiro P2
-    case 7:  return TFT_DARKGREEN; // agente secreto P2
-    case 8:  return TFT_OLIVE;     // mina terrestre P2
-    case 9:  return TFT_MAROON;    // cabo P2
-    case 10: return TFT_GREENYELLOW;   // general P2
-    case 11: return TFT_CYAN;      // lago
-    case 12: return TFT_DARKGREY;  // peça oculta
-    default: return TFT_MAGENTA;   // erro / indefinido
+ switch (valor) {
+    case 1: case 6:   return TFT_MAGENTA;   // Prisioneiro
+    case 2: case 7:   return TFT_GREEN;     // Agente secreto
+    case 3: case 8:   return TFT_YELLOW;    // Mina terrestre
+    case 4: case 9:   return TFT_ORANGE;    // Cabo
+    case 5: case 10:  return TFT_RED;       // General
+    case 11:         return TFT_CYAN;      // Lago
+    case 12:         return TFT_DARKGREY;  // Peça oculta
+    default:         return TFT_BLACK;     // Vazio / erro
   }
 }
 
@@ -476,6 +470,42 @@ void exibeMat(int matriz[NUM_LINHAS][NUM_COLUNAS]) {
       tela.setTextSize(2);
       tela.print(matriz[i][j]);
     }
+  }
+}
+
+void exibeMat2(int matriz[NUM_LINHAS][NUM_COLUNAS]) {
+  // 1) Desenha grade e preenche células (sem imprimir número)
+  for (int i = 0; i < NUM_LINHAS; i++) {
+    for (int j = 0; j < NUM_COLUNAS; j++) {
+      int x = OFF_X + j * TAM_CELULA;
+      int y = OFF_Y + i * TAM_CELULA;
+      tela.drawRect(x, y, TAM_CELULA, TAM_CELULA, TFT_WHITE);
+      uint16_t cor = corDaPeca(matriz[i][j]);
+      tela.fillRect(x+1, y+1, TAM_CELULA-2, TAM_CELULA-2, cor);
+    }
+  }
+
+  // 2) Desenha legenda abaixo do tabuleiro
+  const char* labels[] = {
+    "Prisioneiro", "Agente", "Mina",
+    "Cabo",        "General", "Lago"
+  };
+  const int types[]  = { 1, 2, 3, 4, 5, 11 };
+  int legendX = OFF_X;
+  int legendY = OFF_Y + NUM_LINHAS * TAM_CELULA + 10;
+  tela.setTextSize(2);
+  tela.setTextColor(TFT_WHITE);
+
+  for (int k = 0; k < 6; k++) {
+    uint16_t c = corDaPeca(types[k]);
+    // quadradinho colorido
+    tela.fillRect(legendX, legendY, 20, 20, c);
+    tela.drawRect(legendX, legendY, 20, 20, TFT_WHITE);
+    // rótulo ao lado
+    tela.setCursor(legendX + 26, legendY + 15);
+    tela.print(labels[k]);
+    // avança para a próxima entrada da legenda
+    legendX += 100;
   }
 }
 
