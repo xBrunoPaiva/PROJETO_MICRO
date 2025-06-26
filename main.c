@@ -74,18 +74,40 @@ void setup() {
   Serial.begin(9600);
   Serial.setTimeout(10);
   tela.begin( tela.readID() );
-  tela.fillScreen(TFT_BLACK);
-  tela.setCursor(20, 100);
-  tela.setTextColor(TFT_GREEN);
+  // 1) Fundo e borda
+  tela.fillScreen(TFT_DARKBLUE);
+  tela.drawRoundRect(10, 10, 300, 220, 20, TFT_YELLOW);
+  tela.fillRoundRect(12, 12, 296, 216, 20, TFT_BLUE);
+
+  // 2) Ícone de espada no topo
+  int cx = tela.width() / 2;
+  int cy = 80;
+  // Ponta da espada
+  tela.fillTriangle(cx, cy - 30, cx - 8, cy, cx + 8, cy, TFT_SILVER);
+  // Lâmina
+  tela.fillRect(cx - 4, cy, 8, 70, TFT_SILVER);
+  // Guarda da espada
+  tela.fillRect(cx - 20, cy + 65, 40, 8, TFT_ORANGE);
+  // Cabo da espada
+  tela.fillRect(cx - 6, cy + 73, 12, 15, TFT_BROWN);
+  // Pommel (bucha no cabo)
+  tela.drawCircle(cx, cy + 90, 6, TFT_GOLD);
+
+  // 3) Título principal
+  tela.setTextColor(TFT_YELLOW);
+  tela.setTextSize(4);
+  String title = "MICROMBATE";
+  int16_t tx = (tela.width() - title.length() * 18) / 2; // ~18px por char em size=4
+  tela.setCursor(tx, 160);
+  tela.print(title);
+
+  // 4) Instrução
+  tela.setTextColor(TFT_WHITE);
   tela.setTextSize(2);
-  tela.print("Bem-vindo ao ");
-  tela.setCursor(20, 120);
-  tela.setTextSize(2);
-  tela.print("Micrombate");
-  tela.setCursor(40, 200);
-  tela.setTextColor(TFT_RED);
-  tela.setTextSize(2);
-  tela.print("Digite iniciar micrombate para comecar a jogar");
+  String instr = "Digite \"iniciar\"";
+  tx = (tela.width() - instr.length() * 12) / 2;          // ~12px por char em size=2
+  tela.setCursor(tx, 200);
+  tela.print(instr);
   geraMatriz();
 
   // bloco led
@@ -411,38 +433,6 @@ void geraMatriz() {
 }
 
 
-void destacarAtaques(String player) {
-  for (int i = 0; i < 7; i++) {
-    for (int j = 0; j < 7; j++) {
-      int peca = tabuleiro[i][j];
-
-      if ((player == "P1" && peca >= 1 && peca <= 5) ||
-          (player == "P2" && peca >= 6 && peca <= 10)) {
-       
-        // Verifica casas adjacentesF
-        for (int di = -1; di <= 1; di++) {
-          for (int dj = -1; dj <= 1; dj++) {
-            if (di == 0 && dj == 0) continue;
-      if ( abs(di) + abs(dj) != 1 ) continue;// testa se é na diagonal
-
-            int ni = i + di;
-            int nj = j + dj;
-
-            if (ni >= 0 && ni < 7 && nj >= 0 && nj < 7) {
-              int alvo = tabuleiro[ni][nj];
-              if ((player == "P1" && alvo >= 6 && alvo <= 10) ||
-                  (player == "P2" && alvo >= 1 && alvo <= 5)) {
-               
-                         
-               
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-}
 
 
 
@@ -505,6 +495,40 @@ void vencedor(){
 
 
 
+}
+
+void vencedor2() {
+  // 1) Fundo escuro e borda arredondada
+  tela.fillScreen(TFT_NAVY);
+  tela.drawRoundRect(10, 10, 300, 220, 15, TFT_YELLOW);
+  tela.fillRoundRect(12, 12, 296, 216, 15, TFT_DARKBLUE);
+
+  // 2) Título principal em amarelo
+  tela.setTextColor(TFT_YELLOW);
+  tela.setTextSize(5); // tamanho grande
+  // centraliza horizontalmente: (largura_total - largura_texto) / 2
+  int16_t textWidth = 10 * 24; // "PARABÉNS!" tem 9 caracteres + exclamação = 10; cada caractere ~24px em size=5  
+  int16_t x = (tela.width() - textWidth) / 2;
+  tela.setCursor(x,  thirty_five); // y = 35px
+  tela.print("PARABÉNS!");
+
+  // 3) Subtítulo em branco logo abaixo
+  tela.setTextColor(TFT_WHITE);
+  tela.setTextSize(3);
+  textWidth = 11 * 14; // "VOCÊ VENCEU" = 11 chars; cada ~14px em size=3
+  x = (tela.width() - textWidth) / 2;
+  tela.setCursor(x, 100);
+  tela.print("VOCE VENCEU");
+
+  // 4) Desenha um troféu simples no centro
+  // Base do troféu
+  int cx = tela.width() / 2;
+  tela.fillRect(cx - 30, 140, 60, 40, TFT_YELLOW);
+  // Pedestal
+  tela.fillRect(cx - 20, 180, 40, 15, TFT_YELLOW);
+  // Alças (círculos vazados)
+  tela.drawCircle(cx - 40, 160, 10, TFT_YELLOW);
+  tela.drawCircle(cx + 40, 160, 10, TFT_YELLOW);
 }
 
 
