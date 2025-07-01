@@ -89,8 +89,36 @@ Adafruit_NeoPixel fita = Adafruit_NeoPixel(numLeds, pinoLed, NEO_GRB + NEO_KHZ80
 
 void setup() {
   Serial.begin(9600);
-  Serial.setTimeout(10);
   tela.begin( tela.readID() );
+  
+  // Ícone de fuzil no topo
+  // int cx = tela.width() / 2;
+  // int cy = 80;
+
+  // // Corpo principal do fuzil (reta horizontal)
+  // tela.fillRect(cx - 60, cy, 120, 10, TFT_DARKGREY);
+  // tela.drawRect(cx - 60, cy, 120, 10, TFT_BLACK);
+
+  // // Cano (extensão à direita)
+  // tela.fillRect(cx + 60, cy + 2, 20, 6, TFT_SILVER);
+  // tela.drawRect(cx + 60, cy + 2, 20, 6, TFT_BLACK);
+
+  // // Coronha (lado esquerdo)
+  // tela.fillTriangle(cx - 60, cy, cx - 80, cy - 10, cx - 80, cy + 20, TFT_BROWN);
+  // tela.drawTriangle(cx - 60, cy, cx - 80, cy - 10, cx - 80, cy + 20, TFT_BLACK);
+
+  // // Carregador inclinado para baixo
+  // tela.fillRect(cx - 10, cy + 10, 8, 16, TFT_DARKGREY);
+  // tela.drawRect(cx - 10, cy + 10, 8, 16, TFT_BLACK);
+
+  // // Alça de mira
+  // tela.fillRect(cx - 20, cy - 5, 10, 5, TFT_BLACK);
+  // tela.fillRect(cx + 10, cy - 5, 10, 5, TFT_BLACK);
+  // Serial.setTimeout(10)
+
+
+  
+  //espada
   // 1) Fundo e borda
   tela.fillScreen(TFT_DARKGREY);
   tela.drawRoundRect(10, 10, 300, 220, 20, TFT_YELLOW);
