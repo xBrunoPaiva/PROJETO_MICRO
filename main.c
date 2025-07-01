@@ -260,6 +260,14 @@ void loop() {
       }
       if (acao == "acender") {
         acender(linha, coluna, 1);
+        acender(0, 0, 3);
+        acender(1, 0, 3);
+        acender(2, 0, 3);
+        acender(3, 0, 3);
+        acender(4, 0, 3);
+        acender(5, 0, 3);
+        acender(6, 0, 3);
+        acender(7, 0, 3);
       } else if (acao == "apagar") {
         piscarAtivo[idx] = false;
         fita.setPixelColor(idx, 0);
