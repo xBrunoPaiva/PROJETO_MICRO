@@ -19,22 +19,12 @@
 #define TFT_TEAL        0x0410 
 #define TFT_OLIVE       0x8400  
 #define TFT_CORAL       0xFBEA 
-
-#define TFT_BLACK       0x0000
-#define TFT_WHITE       0xFFFF
-#define TFT_RED         0xF800
-#define TFT_GREEN       0x07E0
-#define TFT_BLUE        0x001F
-#define TFT_CYAN        0x07FF
-#define TFT_MAGENTA     0xF81F
-#define TFT_YELLOW      0xFFE0
 #define TFT_ORANGE      0xFD20
 #define TFT_PINK        0xF81F
 #define TFT_PURPLE      0x780F
 #define TFT_BROWN       0xA145
 #define TFT_GRAY        0x8410
 #define TFT_LIGHTGRAY   0xC618
-#define TFT_DARKGRAY    0x4208
 // encerramento bloco leds
 
 
@@ -88,7 +78,7 @@ bool inicio = false;
 
 // bloco leds
 int idxLaguinho = 39;
-bool piscarAtivo[numLeds] = { false };
+bool piscarAtivo[ numLeds ] = { false };
 bool piscaRed[ numLeds ]   = { false };
 bool piscaGreen[ numLeds ] = { false };
 unsigned long ultimaTroca = 0;
@@ -529,7 +519,7 @@ void exibeMat2(int matriz[NUM_LINHAS][NUM_COLUNAS]) {
   const int types[]  = { 1, 2, 3, 4, 5, 11 };
   int legendX = OFF_X;
   int legendY = OFF_Y + NUM_LINHAS * TAM_CELULA + 10;
-  tela.setTextSize(2);
+  tela.setTextSize(1);
   tela.setTextColor(TFT_WHITE);
 
   for (int k = 0; k < 6; k++) {
@@ -541,7 +531,7 @@ void exibeMat2(int matriz[NUM_LINHAS][NUM_COLUNAS]) {
     tela.setCursor(legendX + 26, legendY + 15);
     tela.print(labels[k]);
     // avança para a próxima entrada da legenda
-    legendX += 100;
+    legendY += 10;
   }
 }
 
