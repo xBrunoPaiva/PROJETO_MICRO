@@ -7,7 +7,34 @@
 #define pinoLed 38
 #define numLeds 150
 
+#define TFT_GOLD        0xFEA0  
+#define TFT_SILVER      0xC618  
+#define TFT_BRONZE      0xCA60  
+#define TFT_NEON_GREEN  0x07F0  
+#define TFT_NEON_BLUE   0x1F9F 
+#define TFT_NEON_PINK   0xF8BF  
+#define TFT_BEIGE       0xF7BB  
+#define TFT_MAROON      0x8000  
+#define TFT_NAVY        0x000F  
+#define TFT_TEAL        0x0410 
+#define TFT_OLIVE       0x8400  
+#define TFT_CORAL       0xFBEA 
 
+#define TFT_BLACK       0x0000
+#define TFT_WHITE       0xFFFF
+#define TFT_RED         0xF800
+#define TFT_GREEN       0x07E0
+#define TFT_BLUE        0x001F
+#define TFT_CYAN        0x07FF
+#define TFT_MAGENTA     0xF81F
+#define TFT_YELLOW      0xFFE0
+#define TFT_ORANGE      0xFD20
+#define TFT_PINK        0xF81F
+#define TFT_PURPLE      0x780F
+#define TFT_BROWN       0xA145
+#define TFT_GRAY        0x8410
+#define TFT_LIGHTGRAY   0xC618
+#define TFT_DARKGRAY    0x4208
 // encerramento bloco leds
 
 
@@ -61,7 +88,7 @@ bool inicio = false;
 
 // bloco leds
 int idxLaguinho = 39;
-piscarAtivo[numLeds] = { false };
+bool piscarAtivo[numLeds] = { false };
 bool piscaRed[ numLeds ]   = { false };
 bool piscaGreen[ numLeds ] = { false };
 unsigned long ultimaTroca = 0;
@@ -75,7 +102,7 @@ void setup() {
   Serial.setTimeout(10);
   tela.begin( tela.readID() );
   // 1) Fundo e borda
-  tela.fillScreen(TFT_DARKBLUE);
+  tela.fillScreen(TFT_DARKGREY);
   tela.drawRoundRect(10, 10, 300, 220, 20, TFT_YELLOW);
   tela.fillRoundRect(12, 12, 296, 216, 20, TFT_BLUE);
 
@@ -83,7 +110,7 @@ void setup() {
   int cx = tela.width() / 2;
   int cy = 80;
   // Ponta da espada
-  tela.fillTriangle(cx, cy - 30, cx - 8, cy, cx + 8, cy, TFT_SILVER);
+  tela.fillTriangle(cx, cy - 30, cx - 4, cy, cx + 4, cy, TFT_SILVER);
   // Lâmina
   tela.fillRect(cx - 4, cy, 8, 70, TFT_SILVER);
   // Guarda da espada
@@ -95,7 +122,7 @@ void setup() {
 
   // 3) Título principal
   tela.setTextColor(TFT_YELLOW);
-  tela.setTextSize(4);
+  tela.setTextSize(3);
   String title = "MICROMBATE";
   int16_t tx = (tela.width() - title.length() * 18) / 2; // ~18px por char em size=4
   tela.setCursor(tx, 160);
@@ -166,11 +193,19 @@ void loop() {
       }
 
       limparMatrizDeLEDs();                         // Limpa os LEDs após jogada
-      geraMatriz();                                 // Atualiza as matrizes visuais
-      exibeMat(vezP1 ? matrizP1 : matrizP2);        // Mostra a matriz correta para o jogador
+      geraMatriz();    
+
+
+      vezP1 = !vezP1;
+
+      if (vezP1) exibeMat2(matrizP1);
+      else exibeMat2(matrizP2);
+                  
+              // Atualiza as matrizes visuais
+             
       imprimeTabuleiro();                           // Mostra no Serial
-      if (vence) vencedor();                        // Finaliza se alguém ganhou
-      vezP1 = !vezP1;                               // Alterna turno
+      if (vence) vencedor2();                        // Finaliza se alguém ganhou
+                                   // Alterna turno
       estado = INI_FLUX;                            // Reinicia estado
       return;
     }
@@ -180,7 +215,7 @@ void loop() {
       inicio = true;
       vence = false;
       tela.fillScreen(TFT_BLACK);
-      exibeMat(matrizP1);
+      exibeMat2(matrizP1);
       return;
     }
 
@@ -224,6 +259,7 @@ void loop() {
 
     // 5) Comando para mover uma peça
     if (texto.startsWith("mover") && estado == INI_FLUX) {
+      limparMatrizDeLEDs();
       char letra = texto.charAt(6);
       int col = toupper(letra) - 'A';
       int lin = texto.substring(7, 8).toInt() - 1;
@@ -237,7 +273,7 @@ void loop() {
 
       int peca = tabuleiro[lin][col];
       bool pecaP1 = (player == "P1" && peca >= 1 && peca <= 5);
-      bool pecaP2 = (player == "P2" && peca >= 6 && peca <=   0);
+      bool pecaP2 = (player == "P2" && peca >= 6 && peca <=   10);
       if ((pecaP1 && !vezP1) || (pecaP2 && vezP1) || !(pecaP2 || pecaP1)) {
         Serial.println("Peca invalida para voce");
         return;
@@ -266,8 +302,8 @@ void loop() {
           possMoves[possCount][1] = nc;
           possCount++;
 
-          if (dest == 0) pisca(nl, nc, 2);
-          else           acender(nl, nc, 5);
+          if (dest == 0) piscaVerde(nl, nc);
+          else           piscaVermelho(nl, nc);
         }
       }
 
@@ -277,7 +313,7 @@ void loop() {
         return;
       }
 
-      limparMatrizDeLEDs();
+      
       LinOri = lin;
       ColOri = col;
       acender(LinOri, ColOri, 3);             // Destaca a peça escolhida com amarelo
@@ -289,7 +325,7 @@ void loop() {
     // 6) Outros comandos
     if (texto.startsWith("imprime")) {
       geraMatriz();
-      exibeMat(tabuleiro);
+      exibeMat2(tabuleiro);
     }
     else if (texto.startsWith("{{")) {
       texto.replace("{", "");
@@ -531,20 +567,20 @@ void vencedor2() {
   // 1) Fundo escuro e borda arredondada
   tela.fillScreen(TFT_NAVY);
   tela.drawRoundRect(10, 10, 300, 220, 15, TFT_YELLOW);
-  tela.fillRoundRect(12, 12, 296, 216, 15, TFT_DARKBLUE);
+  tela.fillRoundRect(12, 12, 296, 216, 15, TFT_DARKGREY);
 
   // 2) Título principal em amarelo
   tela.setTextColor(TFT_YELLOW);
-  tela.setTextSize(5); // tamanho grande
+  tela.setTextSize(3); // tamanho grande
   // centraliza horizontalmente: (largura_total - largura_texto) / 2
   int16_t textWidth = 10 * 24; // "PARABÉNS!" tem 9 caracteres + exclamação = 10; cada caractere ~24px em size=5  
   int16_t x = (tela.width() - textWidth) / 2;
-  tela.setCursor(x,  thirty_five); // y = 35px
-  tela.print("PARABÉNS!");
+  tela.setCursor(x,  35); // y = 35px
+  tela.print("   PARABENS!");
 
   // 3) Subtítulo em branco logo abaixo
   tela.setTextColor(TFT_WHITE);
-  tela.setTextSize(3);
+  tela.setTextSize(2);
   textWidth = 11 * 14; // "VOCÊ VENCEU" = 11 chars; cada ~14px em size=3
   x = (tela.width() - textWidth) / 2;
   tela.setCursor(x, 100);
@@ -613,6 +649,9 @@ void limparMatrizDeLEDs() {
   for (int i = 0; i < numLeds; i++) {
     fita.setPixelColor(i, 0);
     piscarAtivo[i] = false;
+    piscaRed[i] = false;
+    piscaGreen[i] = false;
+
   }
   fita.setPixelColor(idxLaguinho, fita.Color(0, 0, 255));
   fita.show();
