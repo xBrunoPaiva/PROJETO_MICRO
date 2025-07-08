@@ -1,6 +1,7 @@
 #include <Adafruit_GFX.h>
 #include <MCUFRIEND_kbv.h>
 #include <TouchScreen.h>
+#include <GFButton.h>
 // bloco leds
 #include <Adafruit_NeoPixel.h>
 
@@ -27,6 +28,9 @@
 #define TFT_LIGHTGRAY 0xC618
 // encerramento bloco leds
 
+//bloco botão
+GFButton botaoAzul(31);
+/// encerramento botão
 
 
 
@@ -110,7 +114,8 @@ void setup() {
   Serial.begin(9600);
   Serial1.begin(9600);
   tela.begin(tela.readID());
-
+  
+  botaoAzul.setPressHandler(legendas);
 
   //  1) Fundo e borda
   tela.fillScreen(TFT_DARKGREY);
@@ -632,7 +637,55 @@ void clearBlink() {
   fita.show();
 }
 //encerramento bloco leds
+void legendas() {
+  // 1) Define coordenadas da área de legenda
+  int legendX = OFF_X;
+  int legendY = OFF_Y + NUM_LINHAS * TAM_CELULA + 10;
+  int legendW = NUM_COLUNAS * TAM_CELULA;  // largura = largura do tabuleiro
+  int legendH = 3 * 30;                    // 3 linhas de 30px cada
 
+  // 2) Desenha fundo preto para "limpar" tudo que estiver ali
+  tela.fillRect(legendX, legendY, legendW, legendH, TFT_BLACK);
+
+  // 3) Configura texto
+  tela.setTextSize(1);
+  tela.setTextColor(TFT_WHITE);
+
+  // Dados da legenda
+  const char* labels[] = {
+    "Prisioneiro", "Agente", "Mina",
+    "Cabo",        "General","Lago"
+  };
+  const int types[] = { 1, 2, 3, 4, 5, 11 };
+
+  // 4) Desenha primeira coluna (itens 0,1,2)
+  for (int k = 0; k < 3; k++) {
+    uint16_t c = corDaPeca(types[k]);
+    int x = legendX;
+    int y = legendY + k * 30;
+
+    // quadradinho colorido
+    tela.fillRect(x, y, 20, 20, c);
+    tela.drawRect(x, y, 20, 20, TFT_WHITE);
+
+    // rótulo ao lado
+    tela.setCursor(x + 26, y + 6);
+    tela.print(labels[k]);
+  }
+
+  // 5) Desenha segunda coluna (itens 3,4,5)
+  for (int k = 3; k < 6; k++) {
+    uint16_t c = corDaPeca(types[k]);
+    int x = legendX + legendW/2;           // divide área ao meio
+    int y = legendY + (k - 3) * 30;        // mesma lógica de Y
+
+    tela.fillRect(x, y, 20, 20, c);
+    tela.drawRect(x, y, 20, 20, TFT_WHITE);
+
+    tela.setCursor(x + 26, y + 6);
+    tela.print(labels[k]);
+  }
+}
 
 
 
