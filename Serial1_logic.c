@@ -5,7 +5,7 @@
 #include <Adafruit_NeoPixel.h>
 
 #define pinoLed 38
-#define numLeds 150
+#define numLeds 200
 
 #define TFT_GOLD 0xFEA0
 #define TFT_SILVER 0xC618
