@@ -57,8 +57,8 @@ int cor3 = 0;
 
 // (suas definições de LED devem estar antes; aqui assumo que você já tem numLeds, pinoLed e fita definidos)
 
-int tabuleiro[7][7] = { 0 };
-int tabuleiroNovo[7][7];
+int tabuleiro[7][7];
+
 
 const int INI_FLUX = 1;                // aguardando comando inicial
 const int EST_AGUARDANDO_DESTINO = 2;  // origem escolhida, espera destino
@@ -75,14 +75,14 @@ int possCount;         // número de destinos válidos encontrados
 int possMoves[4][2];
 int matrizP1[7][7];
 int matrizP2[7][7];
-int pecaRemovida;      // peca removida do tabuleiro para ser movida
+int pecaRemovida;  // peca removida do tabuleiro para ser movida
 bool vezP1 = true;
 bool vence = false;
 
 bool inicio = false;
 
 // bloco leds
-int idxLaguinho = 39;
+int idxLaguinho = 60;
 bool piscarAtivo[numLeds] = { false };
 bool piscaRed[numLeds] = { false };
 bool piscaGreen[numLeds] = { false };
@@ -158,42 +158,65 @@ void setup() {
 }
 
 void loop() {
+  botaoAzul.process();
+
   if (Serial1.available()) {
     String recebido = Serial1.readStringUntil('\n');
     recebido.trim();
+    Serial.println(recebido);
 
-    // 1) Atualização de matriz via "{{...}}"
-    if (recebido.startsWith("{{")) {
-      recebido.replace("{", "");
-      recebido.replace("}", "");
-      geraMatriz();
-      int linha = 0, coluna = 0, idx = 0;
-      if (tabuleiro[4][4] != 11) {
-        while (idx < recebido.length() && linha < NUM_LINHAS) {
-          int espaco = recebido.indexOf(',', idx);
-          if (espaco == -1) espaco = recebido.length();
-          tabuleiro[linha][coluna++] = recebido.substring(idx, espaco).toInt();
-          if (coluna == NUM_COLUNAS) {
-            coluna = 0; linha++;
-            Serial.println("matriz inicial feita");
-          }
-          idx = espaco + 1;
-        }
-      } else {
-        while (idx < recebido.length() && linha < NUM_LINHAS) {
-          int espaco = recebido.indexOf(',', idx);
-          if (espaco == -1) espaco = recebido.length();
-          tabuleiroNovo[linha][coluna++] = recebido.substring(idx, espaco).toInt();
-          if (coluna == NUM_COLUNAS) {
-            coluna = 0; linha++;
-            Serial.println("atualizado");
-          }
-          idx = espaco + 1;
-        }
-      }
-      Serial.println("Matriz recebida!");
-      imprimeTabuleiro();
+    // 1) Atualização de matriz via {{
+  if (recebido.startsWith("{{") && recebido.endsWith("}}")) {
+  Serial.println("Matriz Recebida");
+
+  // 1) Extrai só o conteúdo entre {{ e }}
+  String dados = recebido.substring(2, recebido.length() - 2);
+
+  // 2) Para cada linha (separada por "}{"), faz o parse dos valores
+  int linha = 0;
+  int linhaStart = 0;
+  while (linha < NUM_LINHAS && linhaStart < dados.length()) {
+    // encontra o próximo delimitador de linha
+    int linhaEnd = dados.indexOf("}{", linhaStart);
+    String trechoLinha;
+    if (linhaEnd == -1) {
+      // última linha
+      trechoLinha = dados.substring(linhaStart);
+      linhaStart = dados.length();
+    } else {
+      trechoLinha = dados.substring(linhaStart, linhaEnd);
+      linhaStart = linhaEnd + 2;  // pula "}{"
     }
+
+    // 3) Agora parseia as colunas nessa linha (separadas por vírgula)
+    int coluna = 0;
+    int colStart = 0;
+    while (coluna < NUM_COLUNAS && colStart < trechoLinha.length()) {
+      int virg = trechoLinha.indexOf(',', colStart);
+      if (virg == -1) virg = trechoLinha.length();
+      String peca = trechoLinha.substring(colStart, virg);
+      peca.trim();
+      tabuleiro[linha][coluna++] = peca.toInt();
+      colStart = virg + 1;
+    }
+
+    Serial.print("Linha "); Serial.print(linha); Serial.println(" preenchida");
+    linha++;
+  }
+
+  // 4) Imprime o tabuleiro completo no Serial USB
+  Serial.println("Matriz recebida:");
+  for (int i = 0; i < NUM_LINHAS; i++) {
+    for (int j = 0; j < NUM_COLUNAS; j++) {
+      Serial.print(tabuleiro[i][j]);
+      Serial.print('\t');
+    }
+    Serial.println();
+  }
+}
+
+ 
+    
     // 2) MUD Xn → remove peça e pisca adjacentes
     else if (recebido.startsWith("MUD ")) {
       limparMatrizDeLEDs();
@@ -203,17 +226,17 @@ void loop() {
       tabuleiro[LinOri][ColOri] = 0;
 
       possCount = 0;
-      const int dirs[4][2] = { {1,0},{-1,0},{0,1},{0,-1} };
+      const int dirs[4][2] = { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } };
       for (int d = 0; d < 4; d++) {
         int nl = LinOri + dirs[d][0], nc = ColOri + dirs[d][1];
-        if (nl<0||nl>=NUM_LINHAS||nc<0||nc>=NUM_COLUNAS) continue;
+        if (nl < 0 || nl >= NUM_LINHAS || nc < 0 || nc >= NUM_COLUNAS) continue;
         int dest = tabuleiro[nl][nc];
         if (dest == 11) continue;
         possMoves[possCount][0] = nl;
         possMoves[possCount][1] = nc;
         possCount++;
-        if (dest == 0) piscaVerde(nl,nc);
-        else           piscaVermelho(nl,nc);
+        if (dest == 0) piscaVerde(nl, nc);
+        else piscaVermelho(nl, nc);
       }
       geraMatriz();
       estado = EST_AGUARDANDO_DESTINO;
@@ -231,67 +254,79 @@ void loop() {
       bool ok = false;
       for (int i = 0; i < possCount; i++) {
         if (possMoves[i][0] == linDest && possMoves[i][1] == colDest) {
-          ok = true; break;
+          ok = true;
+          break;
         }
       }
       if (!ok) {
-          
-          int msgX  = OFF_X;
-          int msgY  = OFF_Y + NUM_LINHAS * TAM_CELULA + 10;
-          int msgW  = NUM_COLUNAS * TAM_CELULA;   // largura igual ao tabuleiro
-          int msgH  = 2 * 16;                     // duas linhas de texto em size=2 (~16px de altura cada)
 
-          
-          tela.fillRect(msgX, msgY, msgW, msgH, TFT_BLACK);
+        int msgX = OFF_X;
+        int msgY = OFF_Y + NUM_LINHAS * TAM_CELULA + 10;
+        int msgW = NUM_COLUNAS * TAM_CELULA;  // largura igual ao tabuleiro
+        int msgH = 2 * 16;                    // duas linhas de texto em size=2 (~16px de altura cada)
 
-          
-          tela.setTextColor(TFT_RED);
-          tela.setTextSize(2);
-          tela.setCursor(msgX + 2, msgY + 2);
-          tela.print("Destino invalido!");
-          tela.setCursor(msgX + 2, msgY + 18);
-          tela.print("Escolha posicao valida");
 
-          
-          return;
+        tela.fillRect(msgX, msgY, msgW, msgH, TFT_BLACK);
 
-      int destino = tabuleiro[linDest][colDest];
-      if (destino == 0) {
-        move(LinOri, ColOri, linDest, colDest, pecaRemovida);
-        Serial.println("Peça posicionada com sucesso!");
-      } else {
-        int res = ataque(pecaRemovida, destino);
-        if (res == 1)      move(LinOri, ColOri, linDest, colDest, pecaRemovida);
-        else if (res == -1) morte(LinOri, ColOri);
-        else if (res == 2) vence = true;
-        else {
-          morte(LinOri, ColOri);
-          morte(linDest, colDest);
+
+        tela.setTextColor(TFT_RED);
+        tela.setTextSize(2);
+        tela.setCursor(msgX + 2, msgY + 2);
+        tela.print("Destino invalido!");
+        tela.setCursor(msgX + 2, msgY + 18);
+        tela.print("Escolha posicao valida");
+
+
+        return;
+
+        int destino = tabuleiro[linDest][colDest];
+        if (destino == 0) {
+          move(LinOri, ColOri, linDest, colDest, pecaRemovida);
+          Serial.println("Peça posicionada com sucesso!");
+        } else {
+          int res = ataque(pecaRemovida, destino);
+          if (res == 1) move(LinOri, ColOri, linDest, colDest, pecaRemovida);
+          else if (res == -1) morte(LinOri, ColOri);
+          else if (res == 2) vence = true;
+          else {
+            morte(LinOri, ColOri);
+            morte(linDest, colDest);
+          }
         }
-      }
 
-      limparMatrizDeLEDs();
-      geraMatriz();
-      vezP1 = !vezP1;
-      if (vezP1) exibeMat2(matrizP1);
-      else       exibeMat2(matrizP2);
-      imprimeTabuleiro();
-      if (vence) vencedor2();
-      estado = INI_FLUX;
+        limparMatrizDeLEDs();
+        geraMatriz();
+        vezP1 = !vezP1;
+        if (vezP1) exibeMat2(matrizP1);
+        else exibeMat2(matrizP2);
+        imprimeTabuleiro();
+        if (vence) vencedor2();
+        estado = INI_FLUX;
+      }
     }
-  }
   }
   // 4) Timer de piscar NeoPixels
   if (millis() - ultimaTroca >= 300) {
     ultimaTroca = millis();
     estadoPisca = !estadoPisca;
     for (int i = 0; i < numLeds; i++) {
-      if (piscaRed[i])    fita.setPixelColor(i, estadoPisca?fita.Color(255,0,0):0);
-      else if (piscaGreen[i]) fita.setPixelColor(i, estadoPisca?fita.Color(0,255,0):0);
+      if (piscaRed[i]) fita.setPixelColor(i, estadoPisca ? fita.Color(255, 0, 0) : 0);
+      else if (piscaGreen[i]) fita.setPixelColor(i, estadoPisca ? fita.Color(0, 255, 0) : 0);
     }
     fita.show();
   }
+  if (Serial.available()) {                       // Verifica se há dados disponíveis na Serial
+    String texto = Serial.readStringUntil('\n');  // Lê até a próxima quebra de linha
+    texto.trim();
 
+    if (texto.startsWith("iniciar")) {
+      inicio = true;
+      vence = false;
+      tela.fillScreen(TFT_BLACK);
+      exibeMat2(matrizP1);
+      return;
+    }
+  }
 }
 
 
@@ -488,22 +523,22 @@ void vencedor2() {
   textWidth = 11 * 14;  // "VOCÊ VENCEU" = 11 chars; cada ~14px em size=3
   x = (tela.width() - textWidth) / 2;
   tela.setCursor(x, 100);
-  
-  if(vezP1) tela.print("VOCE VENCEU P1");
-  
+
+  if (vezP1) tela.print("VOCE VENCEU P1");
+
   else tela.print("VOCE VENCEU P2");
-  
+
 
   // 4) Desenha um troféu detalhado no centro
   int cx = tela.width() / 2;
-  tela.fillRect(cx - 30, 140, 60, 40, TFT_YELLOW);       // Parte principal do troféu
-  tela.fillRect(cx - 20, 180, 40, 15, TFT_YELLOW);       // Pedestal
+  tela.fillRect(cx - 30, 140, 60, 40, TFT_YELLOW);  // Parte principal do troféu
+  tela.fillRect(cx - 20, 180, 40, 15, TFT_YELLOW);  // Pedestal
 
-// Alças mais grossas (3 linhas de círculo cada)
+  // Alças mais grossas (3 linhas de círculo cada)
   for (int r = 9; r <= 11; r++) {
     tela.drawCircle(cx - 40, 160, r, TFT_YELLOW);
     tela.drawCircle(cx + 40, 160, r, TFT_YELLOW);
-}
+  }
 }
 //bloco leds
 int posicaoParaIndice(int linha, int coluna) {
@@ -638,54 +673,59 @@ void clearBlink() {
 }
 //encerramento bloco leds
 void legendas() {
-  // 1) Define coordenadas da área de legenda
-  int legendX = OFF_X;
-  int legendY = OFF_Y + NUM_LINHAS * TAM_CELULA + 10;
-  int legendW = NUM_COLUNAS * TAM_CELULA;  // largura = largura do tabuleiro
-  int legendH = 3 * 30;                    // 3 linhas de 30px cada
 
-  // 2) Desenha fundo preto para "limpar" tudo que estiver ali
-  tela.fillRect(legendX, legendY, legendW, legendH, TFT_BLACK);
+  if (inicio) {
+    // 1) Define coordenadas da área de legenda
+    int legendX = OFF_X;
+    int legendY = OFF_Y + NUM_LINHAS * TAM_CELULA + 10;
+    int legendW = NUM_COLUNAS * TAM_CELULA;  // largura = largura do tabuleiro
+    int legendH = 3 * 30;                    // 3 linhas de 30px cada
 
-  // 3) Configura texto
-  tela.setTextSize(1);
-  tela.setTextColor(TFT_WHITE);
+    // 2) Desenha fundo preto para "limpar" tudo que estiver ali
+    tela.fillRect(legendX, legendY, legendW, legendH, TFT_BLACK);
 
-  // Dados da legenda
-  const char* labels[] = {
-    "Prisioneiro", "Agente", "Mina",
-    "Cabo",        "General","Lago"
-  };
-  const int types[] = { 1, 2, 3, 4, 5, 11 };
+    // 3) Configura texto
+    tela.setTextSize(1);
+    tela.setTextColor(TFT_WHITE);
 
-  // 4) Desenha primeira coluna (itens 0,1,2)
-  for (int k = 0; k < 3; k++) {
-    uint16_t c = corDaPeca(types[k]);
-    int x = legendX;
-    int y = legendY + k * 30;
+    // Dados da legenda
+    const char* labels[] = {
+      "Prisioneiro", "Agente", "Mina",
+      "Cabo", "General", "Lago"
+    };
+    const int types[] = { 1, 2, 3, 4, 5, 11 };
 
-    // quadradinho colorido
-    tela.fillRect(x, y, 20, 20, c);
-    tela.drawRect(x, y, 20, 20, TFT_WHITE);
+    // 4) Desenha primeira coluna (itens 0,1,2)
+    for (int k = 0; k < 3; k++) {
+      uint16_t c = corDaPeca(types[k]);
+      int x = legendX;
+      int y = legendY + k * 30;
 
-    // rótulo ao lado
-    tela.setCursor(x + 26, y + 6);
-    tela.print(labels[k]);
-  }
+      // quadradinho colorido
+      tela.fillRect(x, y, 20, 20, c);
+      tela.drawRect(x, y, 20, 20, TFT_WHITE);
 
-  // 5) Desenha segunda coluna (itens 3,4,5)
-  for (int k = 3; k < 6; k++) {
-    uint16_t c = corDaPeca(types[k]);
-    int x = legendX + legendW/2;           // divide área ao meio
-    int y = legendY + (k - 3) * 30;        // mesma lógica de Y
+      // rótulo ao lado
+      tela.setCursor(x + 26, y + 6);
+      tela.print(labels[k]);
+    }
 
-    tela.fillRect(x, y, 20, 20, c);
-    tela.drawRect(x, y, 20, 20, TFT_WHITE);
+    // 5) Desenha segunda coluna (itens 3,4,5)
+    for (int k = 3; k < 6; k++) {
+      uint16_t c = corDaPeca(types[k]);
+      int x = legendX + legendW / 2;   // divide área ao meio
+      int y = legendY + (k - 3) * 30;  // mesma lógica de Y
 
-    tela.setCursor(x + 26, y + 6);
-    tela.print(labels[k]);
+      tela.fillRect(x, y, 20, 20, c);
+      tela.drawRect(x, y, 20, 20, TFT_WHITE);
+
+      tela.setCursor(x + 26, y + 6);
+      tela.print(labels[k]);
+    }
+  } else {
+    inicio = true;
+    vence = false;
+    tela.fillScreen(TFT_BLACK);
+    exibeMat2(matrizP1);
   }
 }
-
-
-
