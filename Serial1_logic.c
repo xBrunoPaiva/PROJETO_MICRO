@@ -94,13 +94,17 @@ void morte(int linOri, int colOri);
 int ataque(int ata, int def);
 int letraParaColuna(char letra);
 uint16_t corDaPeca(int valor);
-void exibeMat(int matriz[NUM_LINHAS][NUM_COLUNAS]);
-void exibeMat2(int matriz[NUM_LINHAS][NUM_COLUNAS]);
+void exibeMat(int matriz[7][7]);
+void exibeMat2(int matriz[7][7]);
 void vencedor();
 void vencedor2();
 int posicaoParaIndice(int linha, int coluna);
 void corDoLed(int cor);
 void acender(int linha, int coluna, int cor);
+void limparMatrizDeLEDs();
+void piscaVerde(int linha, int coluna);
+void piscaVermelho(int linha, int coluna);
+void clearBlink();
 
 void setup() {
   Serial.begin(9600);
@@ -271,7 +275,7 @@ void loop() {
       estado = INI_FLUX;
     }
   }
-
+  }
   // 4) Timer de piscar NeoPixels
   if (millis() - ultimaTroca >= 300) {
     ultimaTroca = millis();
@@ -282,8 +286,8 @@ void loop() {
     }
     fita.show();
   }
-}
 
+}
 
 
 void imprimeTabuleiro() {
@@ -479,16 +483,22 @@ void vencedor2() {
   textWidth = 11 * 14;  // "VOCÊ VENCEU" = 11 chars; cada ~14px em size=3
   x = (tela.width() - textWidth) / 2;
   tela.setCursor(x, 100);
-  tela.print("VOCE VENCEU");
+  
+  if(vezP1) tela.print("VOCE VENCEU P1");
+  
+  else tela.print("VOCE VENCEU P2");
+  
 
   // 4) Desenha um troféu detalhado no centro
   int cx = tela.width() / 2;
-  tela.fillRect(cx - 30, 140, 60, 40, TFT_YELLOW);
-  // Pedestal
-  tela.fillRect(cx - 20, 180, 40, 15, TFT_YELLOW);
-  // Alças (círculos vazados)
-  tela.drawCircle(cx - 40, 160, 10, TFT_YELLOW);
-  tela.drawCircle(cx + 40, 160, 10, TFT_YELLOW);
+  tela.fillRect(cx - 30, 140, 60, 40, TFT_YELLOW);       // Parte principal do troféu
+  tela.fillRect(cx - 20, 180, 40, 15, TFT_YELLOW);       // Pedestal
+
+// Alças mais grossas (3 linhas de círculo cada)
+  for (int r = 9; r <= 11; r++) {
+    tela.drawCircle(cx - 40, 160, r, TFT_YELLOW);
+    tela.drawCircle(cx + 40, 160, r, TFT_YELLOW);
+}
 }
 //bloco leds
 int posicaoParaIndice(int linha, int coluna) {
@@ -497,7 +507,7 @@ int posicaoParaIndice(int linha, int coluna) {
     { 30, 28, 26, 24, 22, 20, 18 },
     { 36, 38, 40, 42, 44, 46, 48 },
     { 66, 64, 62, 60, 58, 56, 54 },
-    { 72, 72, 76, 78, 80, 82, 84 },
+    { 72, 74, 76, 78, 80, 82, 84 },
     { 102, 100, 98, 96, 94, 92, 90 },
     { 108, 110, 112, 114, 116, 118, 120 }
   };
