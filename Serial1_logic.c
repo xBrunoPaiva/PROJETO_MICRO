@@ -88,8 +88,6 @@ bool estadoPisca = false;
 Adafruit_NeoPixel fita = Adafruit_NeoPixel(numLeds, pinoLed, NEO_GRB + NEO_KHZ800);
 // encerramento bloco leds
 void geraMatriz();
-void setup();
-void loop();
 void imprimeTabuleiro();
 void move(int linOri, int colOri, int linDest, int colDest, int peca);
 void morte(int linOri, int colOri);
